@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
-import rem.utils
+#import rem.utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -84,7 +84,7 @@ class REM(object):
 	def train(self, replay_buffer, iterations, batch_size=100, discount=0.99, tau=0.005, policy_noise=0.2, noise_clip=0.5, policy_freq=2):
 
 		for it in range(iterations):
-
+			#  (state, next_state, action, reward, done)
 			# Sample replay buffer
 			x, y, u, r, d = replay_buffer.sample(batch_size)
 			state = torch.FloatTensor(x).to(device)
@@ -95,11 +95,14 @@ class REM(object):
 
 			# Select action according to policy and add clipped noise
 			noise = torch.FloatTensor(u).data.normal_(0, policy_noise).to(device)
-			noise = noise.clamp(-noise_clip, noise_clip)
+			noise = noise.clamp(-noise_clip, noise_clip).unsqueeze(1)
+			#next_action = (policy.actor_target(next_state) + noise).clamp(-policy.max_action, policy.max_action)
 			next_action = (self.actor_target(next_state) + noise).clamp(-self.max_action, self.max_action)
 
 			# Compute the target Q value
+			#num_heads = policy.critic.num_heads
 			num_heads = self.critic.num_heads
+			#target_Q_heads = policy.critic_target(next_state, next_action)
 			target_Q_heads = self.critic_target(next_state, next_action)
 			alpha = torch.rand((num_heads, 1))
 			alpha /= alpha.sum(dim=0)
@@ -108,7 +111,8 @@ class REM(object):
 			target_Q = reward + (done * discount * target_Q).detach()
 
 			# Get current Q estimates
-			current_Q_heads = self.critic(state, action)
+			#current_Q_heads = policy.critic(state, action.unsqueeze(1))
+			current_Q_heads = self.critic(state, action.unsqueeze(1))
 			current_Q = torch.matmul(current_Q_heads, alpha)
 
 			# Compute critic loss
